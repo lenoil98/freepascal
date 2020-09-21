@@ -1,0 +1,10 @@
+Name=fcl-report
+Version=3.2.0
+Checksum=1600693195
+CPU=powerpc64
+OS=freebsd
+SourcePath=/root/Downloads/fpc-3.2.0-devel/packages/fcl-report/
+FPMakeOptions=-o -Ppowerpc64 -o -XPpowerpc64-unknown-freebsd11.2- -o -Xr -o -Ur -o -Xs -o -O2 -o -n -o -dpowerpc64 -o -dRELEASE -o -CaSYSV -o -Cp970 -o -gw3 -o -vv -o -XX -o -CX
+Depends=rtl,fcl-base|1600693068,fcl-image|1600693071,fcl-xml|1600693074,fcl-pdf|1600693177,fcl-json|1600693094,fcl-db|1600693104,fcl-web|1600693123
+NeedLibC=N
+FPMakeAddIn=N

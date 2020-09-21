@@ -1,0 +1,10 @@
+Name=ggi
+Version=3.2.0
+Checksum=1600693132
+CPU=powerpc64
+OS=freebsd
+SourcePath=/root/Downloads/fpc-3.2.0-devel/packages/ggi/
+FPMakeOptions=-o -Ppowerpc64 -o -XPpowerpc64-unknown-freebsd11.2- -o -Xr -o -Ur -o -Xs -o -O2 -o -n -o -dpowerpc64 -o -dRELEASE -o -CaSYSV -o -Cp970 -o -gw3 -o -vv -o -XX -o -CX
+Depends=rtl
+NeedLibC=Y
+FPMakeAddIn=N

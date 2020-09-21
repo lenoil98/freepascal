@@ -1,0 +1,10 @@
+Name=libenet
+Version=3.2.0
+Checksum=1600693148
+CPU=powerpc64
+OS=freebsd
+SourcePath=/root/Downloads/fpc-3.2.0-devel/packages/libenet/
+FPMakeOptions=-o -Ppowerpc64 -o -XPpowerpc64-unknown-freebsd11.2- -o -Xr -o -Ur -o -Xs -o -O2 -o -n -o -dpowerpc64 -o -dRELEASE -o -CaSYSV -o -Cp970 -o -gw3 -o -vv -o -XX -o -CX
+Depends=rtl,rtl-extra|1600693059
+NeedLibC=N
+FPMakeAddIn=N

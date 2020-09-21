@@ -1,0 +1,10 @@
+Name=fcl-web
+Version=3.2.0
+Checksum=1600693123
+CPU=powerpc64
+OS=freebsd
+SourcePath=/root/Downloads/fpc-3.2.0-devel/packages/fcl-web/
+FPMakeOptions=-o -Ppowerpc64 -o -XPpowerpc64-unknown-freebsd11.2- -o -Xr -o -Ur -o -Xs -o -O2 -o -n -o -dpowerpc64 -o -dRELEASE -o -CaSYSV -o -Cp970 -o -gw3 -o -vv -o -XX -o -CX
+Depends=rtl,fcl-base|1600693068,fcl-db|1600693104,fcl-xml|1600693074,fcl-json|1600693094,fcl-net|1600693111,fcl-process|1600693111,fcl-fpcunit|1600693105,openssl|1600693117,fastcgi|1600693089,httpd22|1600693117,httpd24|1600693118,libmicrohttpd|1600693118
+NeedLibC=N
+FPMakeAddIn=N

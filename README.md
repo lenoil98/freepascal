@@ -28,18 +28,20 @@ On the host machine
 
 Note: The options for CROSSOPT can be obtained by running "ppcrossppc64" after the initial build without parameters:
 
-   ~/freepascal# ./compiler/ppcrossppc64 -ic # (Returns list of supported CPU instruction sets)
-	970
-   ~/freepascal# ./compiler/ppcrossppc64 -if # (Returns list of supported FPU instruction sets)
-	NONE
-	SOFT
-	STANDARD
-   ~/freepascal# ./compiler/ppcrossppc64 -ia # (Returns list of supported ABI targets)
-	DEFAULT
-	SYSV
-	AIX
-	DARWIN
-   ~/freepascal#
+	~/freepascal# ./compiler/ppcrossppc64 -ic # (Returns list of supported CPU instruction sets)
+		970
+		
+   	~/freepascal# ./compiler/ppcrossppc64 -if # (Returns list of supported FPU instruction sets)
+		NONE
+		SOFT
+		STANDARD
+		
+   	~/freepascal# ./compiler/ppcrossppc64 -ia # (Returns list of supported ABI targets)
+		DEFAULT
+		SYSV
+		AIX
+		DARWIN
+   	~/freepascal#
 
 5. Copy target compiler into directory of cross-compiler:
 

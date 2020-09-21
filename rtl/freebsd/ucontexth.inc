@@ -53,6 +53,36 @@ type
     mc_fpstate: TMCFPStateArray;
     mc_spare2: array[0..7] of cInt;
   end;
+{$endif}
+
+{$if defined(cpupowerpc) or defined(cpupowerpc64)}
+  mcontext_t = record
+    {*
+     * The first 20 fields must match the definition of
+     * sigcontext. So that we can support sigcontext
+     * and ucontext_t at the same time.
+     *}
+    mc_onstack: cInt;     {* XXX - sigcontext compat. *}
+    mc_len: cInt;         {* sizeof(mcontext_t) *}
+ {* GPRs and supervisor-level regs *}
+    mc_gpr: cInt;          
+    mc_lr: cInt;
+    mc_cr: cInt;
+    mc_xer: cInt;
+    mc_ctr: cInt;
+    mc_srr0: cInt;
+    mc_srr1: cInt;
+    mc_isp: cInt;
+    mc_exc: cInt;
+    mc_dar: cInt;
+    mc_dsisr: cInt;
+ {* floating-point state *}
+    mc_fpscr: cInt;
+ {* altivec state *}
+    mc_vscr: cInt;
+    mc_vrsave: cInt;
+  end;
+{$endif}
 
 
   pucontext_t = ^ucontext_t;

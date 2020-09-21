@@ -20,6 +20,7 @@ type
   end;
   {$packrecords C}
 
+{$ifdef x86_64}
   mcontext_t = record
     {*
      * The first 20 fields must match the definition of

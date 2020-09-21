@@ -30,11 +30,11 @@ Note: The options for CROSSOPT can be obtained by running "ppcrossppc64" after t
 
    ~/freepascal# ./compiler/ppcrossppc64 -ic # (Returns list of supported CPU instruction sets)
 	970
-   ~/freepascal# ./compiler/ppcross68k -if # (Returns list of supported FPU instruction sets)
+   ~/freepascal# ./compiler/ppcrossppc64 -if # (Returns list of supported FPU instruction sets)
 	NONE
 	SOFT
 	STANDARD
-   ~/freepascal# ./compiler/ppcross68k -ia # (Returns list of supported ABI targets)
+   ~/freepascal# ./compiler/ppcrossppc64 -ia # (Returns list of supported ABI targets)
 	DEFAULT
 	SYSV
 	AIX

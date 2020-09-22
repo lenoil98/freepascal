@@ -6,7 +6,7 @@ TODO:
   - Startup code must be adapted. 
     - linking without libc (rtl/freebsd/powerpc64/prt0.as)
     - linking with libc (rtl/freebsd/powerpc64/cprt0.as)
-  - Validate signals (rtl/freebsd/signals.inc)
+  - Validate signals (rtl/freebsd/signal.inc)
   
 Instructions for building cross-compiler and compiler:
 

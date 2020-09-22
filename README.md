@@ -7,6 +7,7 @@ TODO:
     - linking without libc (rtl/freebsd/powerpc64/prt0.as)
     - linking with libc (rtl/freebsd/powerpc64/cprt0.as)
   - Validate signals (rtl/freebsd/signal.inc)
+  - Automatic ABI detection.
   
 Instructions for building cross-compiler and compiler:
 

@@ -42,6 +42,7 @@ Note: The options for CROSSOPT can be obtained by running "ppcrossppc64" after t
 		SYSV
 		AIX
 		DARWIN
+		ELFV2  (Displays if command-line CROSSOPT "-CaELFV2" was used. Needs researching)
    	~/freepascal#
 
 5. Copy target compiler into directory of cross-compiler:

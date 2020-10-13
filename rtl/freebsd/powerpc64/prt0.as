@@ -64,21 +64,6 @@
 .size .ptrgl, . - .ptrgl
 
 /*
- * Initialize Processor.
- *
- */
-FUNCTION_PROLOG _init
-    stdu    r1,-48(r1)            /* save stack pointer */
-    /* Set up an initial stack frame, and clear the LR */
-    mflr    r0
-    std     r0,64(r1)
-    ld      r1,0(r1)
-    ld      r0,16(r1)
-    mtlr    r0
-    bl		_start
-    nop
-    
-/*
  * Main program entry point for static executables
  *
  * The document "64-bit PowerPC ELF Application Binary Interface Supplement 1.9"
@@ -89,14 +74,14 @@ FUNCTION_PROLOG _init
  * use this.
  */
 FUNCTION_PROLOG _start
-    mr     26,1            /* save stack pointer */
+    stdu    r1,-48(r1)            /* save stack pointer */
     /* Set up an initial stack frame, and clear the LR */
-    clrrdi  1,1,5          /* align r1 */
-    li      0,0
-    stdu    1,-128(1)
-    mtlr    0
+    mflr    r0
+    std     r0,64(r1)
+    ld      r1,0(r1)
+    ld      r0,16(r1)
+    mtlr    r0
     std     0,0(1)        /* r1 = pointer to NULL value */
-
     /* store argument count (= 0(r1) )*/
     ld      3,0(26)
     LOAD_64BIT_VAL 10,operatingsystem_parameter_argc

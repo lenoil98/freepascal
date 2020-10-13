@@ -76,6 +76,7 @@ FUNCTION_PROLOG _init
     ld      r0,16(r1)
     mtlr    r0
     bl		_start
+    nop
     
 /*
  * Main program entry point for static executables

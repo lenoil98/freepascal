@@ -140,6 +140,8 @@ type sigset_t = array[0..3] of Longint;
        sc_dsisr	    : clong;
 
        sc_fpscr	    : clong;           { floating-point state }
+ 
+       sc_args : array[0..6] of clong;
        end;
 {$endif}
 

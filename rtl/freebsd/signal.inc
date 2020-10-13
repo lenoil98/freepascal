@@ -126,20 +126,20 @@ type sigset_t = array[0..3] of Longint;
 {$if defined(CPUPOWERPC) or defined(CPUPOWERPC64)}
     SigContextRec = record
        sc_mask      : sigset_t;          { signal mask to restore }
-       sc_onstack   : longint;           { sigstack state to restore }
+       sc_onstack   : clong;           { sigstack state to restore }
 
-       sc_gpr		: longint;
-       sc_lr		: longint;
-       sc_cr		: longint;
-       sc_xer		: longint;
-       sc_ctr		: longint;
-       sc_srr0		: longint;
-       sc_srr1		: longint;
-       sc_exc		: longint;
-       sc_dar		: longint;
-       sc_dsisr	    : longint;
+       sc_gpr		: clong;
+       sc_lr		: clong;
+       sc_cr		: clong;
+       sc_xer		: clong;
+       sc_ctr		: clong;
+       sc_srr0		: clong;
+       sc_srr1		: clong;
+       sc_exc		: clong;
+       sc_dar		: clong;
+       sc_dsisr	    : clong;
 
-       sc_fpscr	    : longint;           { floating-point state }
+       sc_fpscr	    : clong;           { floating-point state }
        end;
 {$endif}
 

@@ -128,20 +128,20 @@ type sigset_t = array[0..3] of Longint;
        sc_mask      : sigset_t;          { signal mask to restore }
        sc_onstack   : clong;           { sigstack state to restore }
 
-       sc_gpr		: clong;
-       sc_lr		: clong;
-       sc_cr		: clong;
-       sc_xer		: clong;
-       sc_ctr		: clong;
-       sc_srr0		: clong;
-       sc_srr1		: clong;
-       sc_exc		: clong;
-       sc_dar		: clong;
+       sc_gpr       : clong;
+       sc_lr        : clong;
+       sc_cr        : clong;
+       sc_xer       : clong;
+       sc_ctr       : clong;
+       sc_srr0      : clong;
+       sc_srr1      : clong;
+       sc_exc       : clong;
+       sc_dar       : clong;
        sc_dsisr	    : clong;
 
        sc_fpscr	    : clong;           { floating-point state }
  
-       sc_args : array[0..6] of clong;
+       sc_args      : array[0..6] of clong;
        end;
 {$endif}
 

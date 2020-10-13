@@ -64,40 +64,19 @@
 .size .ptrgl, . - .ptrgl
 
 /*
- * Main program entry point for dynamic executables.
+ * Initialize Processor.
  *
- * r7 contains the function pointer that needs to be registered for calling at exit.
- * r3/r4/r5 contain argc/argv/envp
  */
-FUNCTION_PROLOG _dynamic_start
-  LOAD_64BIT_VAL 11, __dl_fini
-  std      7,0(11)
-  LOAD_64BIT_VAL 11, PASCALMAIN
-  /* set up GOT pointer from PASCALMAIN */
-  ld       2,8(11)
-  /* and environment pointer */
-  ld      11,16(11)
-  /* store argument count */
-  LOAD_64BIT_VAL 10,operatingsystem_parameter_argc
-  stw     3,0(10)
-  /* store argument address */
-  LOAD_64BIT_VAL 10,operatingsystem_parameter_argv
-  std     4,0(10)
-  /* store environment pointer */
-  LOAD_64BIT_VAL 10,operatingsystem_parameter_envp
-  std     5,0(10)
-
-  LOAD_64BIT_VAL 8,__stkptr
-  std     1,0(8)
-
-  bl      PASCALMAIN
-  nop
-
-  /* we should not reach here. Crash horribly */
-  trap
-.long 0
-.byte 0, 12, 64, 0, 0, 0, 0, 0
-
+FUNCTION_PROLOG _init
+    stdu    r1,-48(r1)            /* save stack pointer */
+    /* Set up an initial stack frame, and clear the LR */
+    mflr    r0
+    std     r0,64(r1)
+    ld      r1,0(r1)
+    ld      r0,16(r1)
+    mtlr    r0
+    bl		_start
+    
 /*
  * Main program entry point for static executables
  *

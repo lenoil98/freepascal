@@ -74,13 +74,13 @@
  * use this.
  */
 FUNCTION_PROLOG _start
-    stdu    r1,-48(r1)            /* save stack pointer */
+    stdu    1,-48(1)            /* save stack pointer */
     /* Set up an initial stack frame, and clear the LR */
-    mflr    r0
-    std     r0,64(r1)
-    ld      r1,0(r1)
-    ld      r0,16(r1)
-    mtlr    r0
+    mflr    0
+    std     0,64(1)
+    ld      1,0(1)
+    ld      0,16(1)
+    mtlr    0
     std     0,0(1)        /* r1 = pointer to NULL value */
     /* store argument count (= 0(r1) )*/
     ld      3,0(26)

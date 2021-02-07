@@ -65,7 +65,7 @@ _haltproc:
     LOAD_64BIT_VAL 11,__dl_fini
     ld    11,0(11)
     cmpdi 11,0
-	blr	0
+    blr
 .Lexit:
     LOAD_64BIT_VAL 3, operatingsystem_result
     lwz     3,0(3)

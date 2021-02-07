@@ -2,7 +2,7 @@
    Start-up code for Free Pascal Compiler, not in a shared library,
    not linking with C library.
 
-   Written by Edmund Grimley Evans in 2015 and released into the public domain.
+   Written by Curtis Hamilton in 2021 and released into the public domain.
 */
 
 .macro LOAD_64BIT_VAL ra, value
@@ -13,25 +13,73 @@
     ori       \ra,\ra,\value@l
 .endm
 
-	.text
-	.align 2
+/*
+ * "ptrgl" glue code for calls via pointer. This function
+ * sequence loads the data from the function descriptor
+ * referenced by R11 into the CTR register (function address),
+ * R2 (GOT/TOC pointer), and R11 (the outer frame pointer).
+ *
+ * On entry, R11 must be set to point to the function descriptor.
+ *
+ * See also the 64-bit PowerPC ABI specification for more
+ * information, chapter 3.5.11 (in v1.7).
+ */
+	.section ".text"
+	.align 3
+	.globl .ptrgl
+.ptrgl:
+    ld	    0, 0(11)
+    std     2, 40(1)
+    mtctr   0
+    ld      2, 8(11)
+    ld      11, 16(11)
+    bctr
+.long 0
+.byte 0, 12, 128, 0, 0, 0, 0, 0
+	.type .ptrgl, @function
+	.size .ptrgl, . - .ptrgl
 
 	.globl _dynamic_start
 	.type  _dynamic_start,@function
 _dynamic_start:
-	lis		11, __dl_fini
-	std      7,0(11)
-	bl		_start
+  LOAD_64BIT_VAL 11, __dl_fini
+  std      7,0(11)
+  LOAD_64BIT_VAL 11, PASCALMAIN
+  /* set up GOT pointer from PASCALMAIN */
+  ld       2,8(11)
+  /* and environment pointer */
+  ld      11,16(11)
+  /* store argument count */
+  LOAD_64BIT_VAL 10,operatingsystem_parameter_argc
+  stw     3,0(10)
+  /* store argument address */
+  LOAD_64BIT_VAL 10,operatingsystem_parameter_argv
+  std     4,0(10)
+  /* store environment pointer */
+  LOAD_64BIT_VAL 10,operatingsystem_parameter_envp
+  std     5,0(10)
+
+  LOAD_64BIT_VAL 8,__stkptr
+  std     1,0(8)
+
+  bl      PASCALMAIN
+  nop
+
+  /* we should not reach here. Crash horribly */
+  trap
+.long 0
+.byte 0, 12, 64, 0, 0, 0, 0, 0
 
 	.globl	_start
 	.type	_start,@function
 _start:
-    mr     26,1            /* save stack pointer */
+    stdu    r1,-48(r1)           /* save stack pointer */
     /* Set up an initial stack frame, and clear the LR */
-    clrrdi  1,1,5          /* align r1 */
-    li      0,0
-    stdu    1,-128(1)
-    mtlr    0
+    mflr    r0
+    std     r0,64(r1)
+    ld      r1,0(r1)
+    ld      r0,16(r1)
+    mtlr    r0
     std     0,0(1)        /* r1 = pointer to NULL value */
 
     /* store argument count (= 0(r1) )*/
@@ -65,8 +113,19 @@ _haltproc:
     LOAD_64BIT_VAL 11,__dl_fini
     ld    11,0(11)
     cmpdi 11,0
-    blr
-.Lexit:
+    beq .LNoCallDlFini
+
+    bl .ptrgl
+    ld      2,40(1)
+
+.LNoCallDlFini:
+
+    LOAD_64BIT_VAL 3, operatingsystem_result
+    lwz     3,0(3)
+    /* exit group call */
+    li      0,234
+    sc
+
     LOAD_64BIT_VAL 3, operatingsystem_result
     lwz     3,0(3)
     /* exit call */
@@ -74,12 +133,13 @@ _haltproc:
     sc
     /* we should not reach here. Crash horribly */
     trap
+    /* do not bother cleaning up the stack frame, we should not reach here */
+.long 0
+.byte 0, 12, 64, 0, 0, 0, 0, 0
 
-	/* Define a symbol for the first piece of initialized data. */
-	.data
-	.align 3
+    /* Define a symbol for the first piece of initialized data.  */
     .section ".data"
-	.globl __data_start
+    .globl  __data_start
 __data_start:
 data_start:
 

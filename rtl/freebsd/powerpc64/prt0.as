@@ -1,26 +1,21 @@
 /*
    Start-up code for Free Pascal Compiler, not in a shared library,
    not linking with C library.
+
+   Written by Edmund Grimley Evans in 2015 and released into the public domain.
 */
+
+.macro LOAD_64BIT_VAL ra, value
+    lis       \ra,\value@highest
+    ori       \ra,\ra,\value@higher
+    sldi      \ra,\ra,32
+    oris      \ra,\ra,\value@h
+    ori       \ra,\ra,\value@l
+.endm
 
 	.text
 	.align 2
 
-#APP
-	.ident  "FreeBSD"
-#NO_APP
-	.section        .note.ABI-tag,"a",@progbits
-	.p2align 2
-	.type	abitag, @object
-	.size	abitag, 24
-abitag:
-	.long	8
-	.long	4
-	.long	1
-	.string	"FreeBSD"
-	.long	120000
-
-	.section        .rodata
 .LC0:
 	.string ""
 .globl __progname
@@ -34,114 +29,88 @@ __progname:
 	.p2align 2,,3
 
 	.globl	_start
-	.type	_start,#function
+	.type	_start,@function
 _start:
-	/* Initialise FP to zero */
-	mov	x29,#0
+    mr     26,1            /* save stack pointer */
+    /* Set up an initial stack frame, and clear the LR */
+    clrrdi  1,1,5          /* align r1 */
+    li      0,0
+    stdu    1,-128(1)
+    mtlr    0
+    std     0,0(1)        /* r1 = pointer to NULL value */
 
-	/* Get argc, argv, envp */
-	ldr	x1,[x0]
-	add	x2,x0,#8
-	add	x11,x1,#1
-	add	x11,x2,x11,lsl #3
+    /* store argument count (= 0(r1) )*/
+    ld      3,0(26)
+    LOAD_64BIT_VAL 10,operatingsystem_parameter_argc
+    stw     3,0(10)
+    /* calculate argument vector address and store (= 8(r1) + 8 ) */
+    addi    4,26,8
+    LOAD_64BIT_VAL 10,operatingsystem_parameter_argv
+    std     4,0(10)
+    /* store environment pointer (= argv + (argc+1)* 8 ) */
+    addi    5,3,1
+    sldi    5,5,3
+    add     5,4,5
+    LOAD_64BIT_VAL 10, operatingsystem_parameter_envp
+    std     5,0(10)
 
-	/* Save argc, argv, envp, environ, __progname and initial stack pointer */
-	ldr	x10,=operatingsystem_parameter_argc
-	str	x1,[x10]
-	ldr	x10,=operatingsystem_parameter_argv
-	str	x2,[x10]
-	ldr	x10,=operatingsystem_parameter_envp
-	str	x11,[x10]
+    LOAD_64BIT_VAL 8,__stkptr
+    std     1,0(8)
 
-	/* save environ */
-	adrp	x10,environ
-	ldr	x10,[x10,:lo12:environ]
-	cbnz	x10,.LBB0_2
-	ldr	x10,=environ
-	str	x11,[x10]
-.LBB0_2:
-	/* save __progname */
-        ldr     w8,=operatingsystem_parameter_argc
-        cmp     w8,#0
-        cset    w8,le
-        tbnz    w8,#0,.LBB0_9
-// %bb.1:
-	adrp	x8,operatingsystem_parameter_argv
-        ldr     x8,[x8,:lo12:operatingsystem_parameter_argv]
-        cbz     x8,.LBB0_9
-// %bb.2:
-	ldr	x2,[x2]
-	adrp	x9,__progname
-	adrp	x10,__progname
-	add	x10,x10,:lo12:__progname
-	str	x2,[x10]
-	ldr	x8,[x9,:lo12:__progname]
-	adrp	x9,s
-	add	x9,x9,:lo12:s
-	str	x8,[x9]
-.LBB0_3:
-	adrp	x8,s
-	ldr	x8,[x8,:lo12:s]
-	ldrb	w9,[x8]
-	cbz	w9,.LBB0_8
-// %bb.4:
-	adrp	x8,s
-	ldr	x8,[x8, :lo12:s]
-	ldrb	w9,[x8]
-	cmp	w9,#47
-	b.ne	.LBB0_6
-// %bb.5:
-	adrp	x8,s
-	ldr	x8,[x8,:lo12:s]
-	add	x8,x8,#1
-	adrp	x9,__progname
-	add	x9,x9,:lo12:__progname
-	str	x8,[x9]
-.LBB0_6:
-// %bb.7:
-	adrp	x8,s
-	adrp	x9,s
-	add	x9,x9,:lo12:s
-	ldr	x8,[x8,:lo12:s]
-	add	x8,x8,#1
-	str	x8,[x9]
-	b	.LBB0_3
-.LBB0_8:
-.LBB0_9:
-	/* save stack pointer */
-	ldr	x10,=__stkptr
-	mov	x6,sp
-	str	x6,[x10]
+    bl      PASCALMAIN
+    nop
 
-	/* Call main */
-	bl	PASCALMAIN
+	.globl	_haltproc
+	.type	_haltproc,@function
+_haltproc:
+    mflr  0
+    std   0,16(1)
+    stdu  1,-144(1)
 
-	ldr	x10,=operatingsystem_result
-	ldr	w0,[x10]
-	mov	w8,#1 // SYS_exit
-	svc	#0
+    LOAD_64BIT_VAL 11,__dl_fini
+    ld    11,0(11)
+    cmpdi 11,0
+	blr	0
+.Lexit:
+    LOAD_64BIT_VAL 3, operatingsystem_result
+    lwz     3,0(3)
+    /* exit call */
+    li      0,1
+    sc
+    /* we should not reach here. Crash horribly */
+    trap
 
 	/* Define a symbol for the first piece of initialized data. */
 	.data
 	.align 3
+    .section ".data"
 	.globl __data_start
 __data_start:
-	.long 0
-	.weak data_start
-	data_start = __data_start
+data_start:
 
-	.bss
-	.align 3
+    .section ".bss"
 
-	.comm __stkptr,8
+    .type __stkptr, @object
+    .size __stkptr, 8
+    .global __stkptr
+__stkptr:
+    .skip 8
 
-	.comm operatingsystem_parameter_envp,8
-	.comm operatingsystem_parameter_argc,8
-	.comm operatingsystem_parameter_argv,8
-	.comm environ,8,8
+    .type __dl_fini, @object
+    .size __dl_fini, 8
+    .global __dl_fini
+__dl_fini:
+    .skip 8
 
-s:
-        .xword  0
-        .size   s, 8
+    .type operatingsystem_parameters, @object
+    .size operatingsystem_parameters, 24
+operatingsystem_parameters:
+    .skip 3 * 8
+    .global operatingsystem_parameter_argc
+    .global operatingsystem_parameter_argv
+    .global operatingsystem_parameter_envp
+    .set operatingsystem_parameter_argc, operatingsystem_parameters+0
+    .set operatingsystem_parameter_argv, operatingsystem_parameters+8
+    .set operatingsystem_parameter_envp, operatingsystem_parameters+16
 
 	.section .note.GNU-stack,"",%progbits

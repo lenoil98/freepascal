@@ -1,198 +1,124 @@
-/*
- * Startup code for programs linked with GNU libc, PowerPC64
- * version.
- *
- * Adapted from the glibc-sources (2.3.5) in the file
- *
- *     sysdeps/powerpc/powerpc64/elf/start.S
- *
- * Original header follows.
- */
+        .file   "crt1_ppc64_elfv2.S"
 
-/* Startup code for programs linked with GNU libc.  PowerPC64 version.
-   Copyright (C) 1998,1999,2000,2001,2002,2003 Free Software Foundation, Inc.
-   This file is part of the GNU C Library.
+        # ELFv2: no function descriptors, direct entry; r3=argc, r4=argv, r5=envp
+        .abiversion 2
 
-   The GNU C Library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Lesser General Public
-   License as published by the Free Software Foundation; either
-   version 2.1 of the License, or (at your option) any later version.
+        # Optional ABI note (adjust or drop as needed)
+        .section .note.ABI-tag,"a",@progbits
+        .p2align 2
+        .type   abitag, @object
+        .size   abitag, 24
+abitag:
+        .long   8
+        .long   4
+        .long   1
+        .string "FreeBSD"
+        .long   900044
 
-   The GNU C Library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Lesser General Public License for more details.
+        .section .rodata
+.LC0:
+        .asciz  ""
 
-   You should have received a copy of the GNU Lesser General Public
-   License along with the GNU C Library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-   02110-1301 USA.  */
+        .globl  __progname
+        .section .data
+        .p2align 3
+        .type   __progname, @object
+        .size   __progname, 8
+__progname:
+        .quad   .LC0
 
-/* some macros which simplify the startup code */
+        .comm   environ,8,8           # like on x86_64
+        .weak   _DYNAMIC              # kept for parity with original
 
-/* load the 64 bit value "value" into register ra */
-.macro LOAD_64BIT_VAL ra, value
-    lis       \ra,\value@highest
-    ori       \ra,\ra,\value@higher
-    sldi      \ra,\ra,32
-    oris      \ra,\ra,\value@h
-    ori       \ra,\ra,\value@l
-.endm
+        # Optionally expose these like the original snippet did.
+        .globl  operatingsystem_parameter_argc
+        .globl  operatingsystem_parameter_argv
+        .globl  operatingsystem_parameter_envp
+        .p2align 3
+operatingsystem_parameter_argc:
+        .quad   0
+operatingsystem_parameter_argv:
+        .quad   0
+operatingsystem_parameter_envp:
+        .quad   0
 
-/* create function prolog for symbol "fn" */
-.macro FUNCTION_PROLOG fn
-    .section  ".text"
-    .align    2
-    .globl    \fn
-    .section  ".opd", "aw"
-    .align    3
-\fn:
-    .quad     .\fn, .TOC.@tocbase, 0
-    .previous
-    .size     \fn, 24
-    .type     \fn, @function
-    .globl    .\fn
-.\fn:
-.endm
+        .text
+        .p2align 2
+        .globl  _start
+        .type   _start, @function
+_start:
+        .cfi_startproc
+        # Prologue (simple, we’re going to exit() so restoration is purely formal)
+        mflr    0
+        stdu    1, -32(1)             # create small frame
+        std     0, 16(1)
+        .cfi_def_cfa_offset 32
+        .cfi_offset 65, 16
 
-/*
- * "ptrgl" glue code for calls via pointer. This function
- * sequence loads the data from the function descriptor
- * referenced by R11 into the CTR register (function address),
- * R2 (GOT/TOC pointer), and R11 (the outer frame pointer).
- *
- * On entry, R11 must be set to point to the function descriptor.
- *
- * See also the 64-bit PowerPC ABI specification for more
- * information, chapter 3.5.11 (in v1.7).
- */
-.section ".text"
-.align 3
-.globl .ptrgl
-.ptrgl:
-    ld	    0, 0(11)
-    std     2, 40(1)
-    mtctr   0
-    ld      2, 8(11)
-    ld      11, 8(11)
-    bctr
-.long 0
-.byte 0, 12, 128, 0, 0, 0, 0, 0
-.type .ptrgl, @function
-.size .ptrgl, . - .ptrgl
+        # r3=argc, r4=argv, r5=envp (ELFv2 process entry convention)
 
-/*
- * start_addresses is a structure containing the real
- * entry point (next to other things not interesting to
- * us here).
- *
- * All references in the struct are function descriptors
- *
- */
-    .section ".rodata"
-    .align  3
-start_addresses:
-    .quad   0 /* was _SDA_BASE_  but not in 64-bit ABI*/
-    .quad   main_stub
-    .quad   __libc_csu_init
-    .quad   __libc_csu_fini
-    .size   start_adresses, .-start_addresses
+        # Store argc
+        lis     9, operatingsystem_parameter_argc@ha
+        addi    9, 9, operatingsystem_parameter_argc@l
+        std     3, 0(9)
 
-/*
- * the real entry point for the program
- */
-FUNCTION_PROLOG _start
-    mr  9,1                   /* save the stack pointer */
+        # Store argv
+        lis     10, operatingsystem_parameter_argv@ha
+        addi    10, 10, operatingsystem_parameter_argv@l
+        std     4, 0(10)
 
-    /* Set up an initial stack frame, and clear the LR.  */
+        # Store envp
+        lis     11, operatingsystem_parameter_envp@ha
+        addi    11, 11, operatingsystem_parameter_envp@l
+        std     5, 0(11)
 
-    clrrdi  1,1,4
-    li      0,0
-    stdu    1,-128(1)
-    mtlr    0
-    std     0,0(1)
+        # environ = envp
+        lis     12, environ@ha
+        addi    12, 12, environ@l
+        std     5, 0(12)
 
-    /* put the address of start_addresses in r8...  */
-    /* PPC64 ABI uses R13 for thread local, so we leave it alone */
-    LOAD_64BIT_VAL 8, start_addresses
+        # if (argc > 0 && argv[0] != NULL) { __progname = argv[0]; ... }
+        cmpdi   3, 0
+        ble     1f                      # if argc <= 0, skip
 
-    b       __libc_start_main
-    nop                      /* a NOP for the linker */
+        ld      6, 0(4)                 # r6 = argv[0]
+        cmpdi   6, 0
+        beq     1f
 
-/*
- * This is our FreePascal main procedure which is called by
- * libc after initializing.
- */
+        # __progname = argv[0]
+        lis     7, __progname@ha
+        addi    7, 7, __progname@l
+        std     6, 0(7)
 
-FUNCTION_PROLOG main_stub
-    mflr    0
-    std     0,16(1)
-    stdu    1,-128(1)
+        # Scan to last '/' and keep pointer to char after it.
+        # r8 = current pointer
+        mr      8, 6
 
-    LOAD_64BIT_VAL 8, operatingsystem_parameter_argc
-    stw     3,0(8)
+0:      lbz     9, 0(8)                 # load byte
+        cmpdi   9, 0
+        beq     1f                      # reached end -> done
 
-    LOAD_64BIT_VAL 8, operatingsystem_parameter_argv
-    std     4,0(8)
+        cmpdi   9, 47                   # '/'
+        bne     2f
+        # if '/', __progname = (r8 + 1)
+        addi    10, 8, 1
+        std     10, 0(7)
 
-    LOAD_64BIT_VAL 8, operatingsystem_parameter_envp
-    std     5,0(8)
+2:      addi    8, 8, 1                 # ++ptr
+        b       0b
 
-    LOAD_64BIT_VAL 8, __stkptr
-    std     1,0(8)
+1:
+        # Call main(argc, argv, envp)
+        # r3,r4,r5 already set by entry, keep them.
+        bl      main
+        # return value in r3
 
-    LOAD_64BIT_VAL 8, ___fpc_ret
-    std     1,0(8)
+        # exit(main_ret)
+        mr      3, 3
+        bl      exit
 
-    LOAD_64BIT_VAL 3, _start
-    ld      3, 0(3)
-    LOAD_64BIT_VAL 4, etext
-    bl      __monstartup
-    nop
+        # (no return)
+        .cfi_endproc
+        .size   _start, .-_start
 
-    LOAD_64BIT_VAL 3, _mcleanup
-    bl      atexit
-    nop
-
-    bl      PASCALMAIN
-    nop
-
-    b       ._haltproc
-
-FUNCTION_PROLOG _haltproc
-    LOAD_64BIT_VAL 8, ___fpc_ret
-    ld      1, 0(8)
-    addi    1, 1, 128
-    ld      0, 16(1)
-    mtlr    0
-    blr
-
-    /* Define a symbol for the first piece of initialized data.  */
-    .section ".data"
-    .globl  __data_start
-__data_start:
-data_start:
-
-___fpc_ret:                            /* return address to libc */
-    .quad   0
-
-    .section ".bss"
-
-    .type __stkptr, @object
-    .size __stkptr, 8
-    .global __stkptr
-__stkptr:
-    .skip 8
-
-    .type operatingsystem_parameters, @object
-    .size operatingsystem_parameters, 24
-operatingsystem_parameters:
-    .skip 3 * 8
-    .global operatingsystem_parameter_argc
-    .global operatingsystem_parameter_argv
-    .global operatingsystem_parameter_envp
-    .set operatingsystem_parameter_argc, operatingsystem_parameters+0
-    .set operatingsystem_parameter_argv, operatingsystem_parameters+8
-    .set operatingsystem_parameter_envp, operatingsystem_parameters+16
-
-.section .note.GNU-stack,"",%progbits
+        .ident  "GAS: ppc64 (ELFv2) crt1"

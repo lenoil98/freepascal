@@ -1,116 +1,131 @@
-/*
-   Start-up code for Free Pascal Compiler, not in a shared library,
-   not linking with C library.
+        .section .note.tag,"a",@note
+        .align  2
+        .type    abitag,@object
+        .size    abitag,48
+abitag:
+        .long   8
+        .long   4
+        .long   1
+        .string "FreeBSD"
+        .long   1400097
+        .long   8
+        .long   4
+        .long   1
+        .string "FreeBSD"
+        .long   0
 
-   Written by Edmund Grimley Evans in 2015 and released into the public domain.
-*/
-
-.macro LOAD_64BIT_VAL ra, value
-    lis       \ra,\value@highest
-    ori       \ra,\ra,\value@higher
-    sldi      \ra,\ra,32
-    oris      \ra,\ra,\value@h
-    ori       \ra,\ra,\value@l
-.endm
-
-	.text
-	.align 2
-
+        .section .rodata
 .LC0:
-	.string ""
-.globl __progname
-	.data
-	.p2align 3
-	.type	__progname, @object
-	.size	__progname, 8
+        .string ""
+
+        .data
+        .p2align 3
+        .globl  __progname
+        .type   __progname,@object
+        .size   __progname,8
 __progname:
-	.quad	.LC0
-	.text
-	.p2align 2,,3
+        .quad   .LC0
 
-	.globl	_start
-	.type	_start,@function
-_start:
-    mr     26,1            /* save stack pointer */
-    /* Set up an initial stack frame, and clear the LR */
-    clrrdi  1,1,5          /* align r1 */
-    li      0,0
-    stdu    1,-128(1)
-    mtlr    0
-    std     0,0(1)        /* r1 = pointer to NULL value */
-
-    /* store argument count (= 0(r1) )*/
-    ld      3,0(26)
-    LOAD_64BIT_VAL 10,operatingsystem_parameter_argc
-    stw     3,0(10)
-    /* calculate argument vector address and store (= 8(r1) + 8 ) */
-    addi    4,26,8
-    LOAD_64BIT_VAL 10,operatingsystem_parameter_argv
-    std     4,0(10)
-    /* store environment pointer (= argv + (argc+1)* 8 ) */
-    addi    5,3,1
-    sldi    5,5,3
-    add     5,4,5
-    LOAD_64BIT_VAL 10, operatingsystem_parameter_envp
-    std     5,0(10)
-
-    LOAD_64BIT_VAL 8,__stkptr
-    std     1,0(8)
-
-    bl      PASCALMAIN
-    nop
-
-	.globl	_haltproc
-	.type	_haltproc,@function
-_haltproc:
-    mflr  0
-    std   0,16(1)
-    stdu  1,-144(1)
-
-    LOAD_64BIT_VAL 11,__dl_fini
-    ld    11,0(11)
-    cmpdi 11,0
-	blr	0
-.Lexit:
-    LOAD_64BIT_VAL 3, operatingsystem_result
-    lwz     3,0(3)
-    /* exit call */
-    li      0,1
-    sc
-    /* we should not reach here. Crash horribly */
-    trap
-
-	/* Define a symbol for the first piece of initialized data. */
-	.data
-	.align 3
-    .section ".data"
-	.globl __data_start
-__data_start:
-data_start:
-
-    .section ".bss"
-
-    .type __stkptr, @object
-    .size __stkptr, 8
-    .global __stkptr
+        .bss
+        .globl  __stkptr
+        .type   __stkptr,@object
+        .size   __stkptr,8
 __stkptr:
-    .skip 8
+        .skip   8
 
-    .type __dl_fini, @object
-    .size __dl_fini, 8
-    .global __dl_fini
-__dl_fini:
-    .skip 8
-
-    .type operatingsystem_parameters, @object
-    .size operatingsystem_parameters, 24
+        .type   operatingsystem_parameters,@object
+        .size   operatingsystem_parameters,24
+        .globl  operatingsystem_parameters
 operatingsystem_parameters:
-    .skip 3 * 8
-    .global operatingsystem_parameter_argc
-    .global operatingsystem_parameter_argv
-    .global operatingsystem_parameter_envp
-    .set operatingsystem_parameter_argc, operatingsystem_parameters+0
-    .set operatingsystem_parameter_argv, operatingsystem_parameters+8
-    .set operatingsystem_parameter_envp, operatingsystem_parameters+16
+        .skip   24
+        .globl  operatingsystem_parameter_envp
+        .globl  operatingsystem_parameter_argc
+        .globl  operatingsystem_parameter_argv
+        .set    operatingsystem_parameter_envp,operatingsystem_parameters+0
+        .set    operatingsystem_parameter_argc,operatingsystem_parameters+8
+        .set    operatingsystem_parameter_argv,operatingsystem_parameters+16
 
-	.section .note.GNU-stack,"",%progbits
+        .comm   environ,8,8
+        .weak   _DYNAMIC
+
+        .text
+        .p2align 2
+        .globl  _start
+        .type   _start,@function
+_start:
+        # --- ELFv2 prologue: create small frame & establish TOC in r2 ---
+        mflr    r0
+        std     r0,16(r1)
+        stdu    r1,-32(r1)
+
+        bl      1f                  # get PC into LR
+1:      mflr    r12                 # r12 = this function's address
+        addis   r2,r12,.TOC.-1b@ha  # r2 = TOC base (high)
+        addi    r2,r2,.TOC.-1b@l    # r2 = TOC base (low)
+        .localentry _start, .-_start
+
+        # Optionally record initial SP (to mirror your x86 global)
+        addis   r11,r2,__stkptr@toc@ha
+        addi    r11,r11,__stkptr@toc@l
+        std     r1,0(r11)
+
+        # --- Pull argc/argv/envp from initial stack layout ---
+        ld      r3,0(r1)            # r3 = argc
+        addi    r4,r1,8             # r4 = argv
+        sldi    r0,r3,3             # r0 = argc * 8
+        add     r5,r4,r0            # r5 = &argv[argc]
+        addi    r5,r5,8             # r5 = envp
+
+        # Store into your globals (TOC-relative)
+        addis   r11,r2,operatingsystem_parameter_argc@toc@ha
+        addi    r11,r11,operatingsystem_parameter_argc@toc@l
+        std     r3,0(r11)
+
+        addis   r11,r2,operatingsystem_parameter_argv@toc@ha
+        addi    r11,r11,operatingsystem_parameter_argv@toc@l
+        std     r4,0(r11)
+
+        addis   r11,r2,operatingsystem_parameter_envp@toc@ha
+        addi    r11,r11,operatingsystem_parameter_envp@toc@l
+        std     r5,0(r11)
+
+        # environ = envp
+        addis   r11,r2,environ@toc@ha
+        addi    r11,r11,environ@toc@l
+        std     r5,0(r11)
+
+        # __progname = argv[0] if argc>0 && argv[0]!=NULL
+        cmpdi   r3,0
+        ble     1f
+        ld      r9,0(r4)            # r9 = argv[0]
+        cmpdi   r9,0
+        beq     1f
+        addis   r11,r2,__progname@toc@ha
+        addi    r11,r11,__progname@toc@l
+        std     r9,0(r11)
+
+        # Walk argv[0] to find last '/' and set __progname to basename
+        mr      r10,r9
+0:
+        lbz     r6,0(r10)
+        cmpdi   r6,0
+        beq     1f
+        cmpdi   r6,47               # '/'
+        bne     2f
+        addi    r7,r10,1
+        addis   r11,r2,__progname@toc@ha
+        addi    r11,r11,__progname@toc@l
+        std     r7,0(r11)
+2:
+        addi    r10,r10,1
+        b       0b
+
+1:
+        # Call main(argc, argv, envp)   (r3,r4,r5 already set)
+        bl      main
+        # exit(main_ret)
+        mr      r3,r3
+        bl      exit
+        # no return
+
+        .size   _start,.-_start

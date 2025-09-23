@@ -818,16 +818,20 @@ begin
 {$ifdef powerpc}
   if (target_info.abi=abi_powerpc_elfv2) and
      (target_info.endian=endian_little) then
-    targetstr:='-b elf32-powerpcle -m elf32lppc'
+    targetstr:='-b elf32-powerpcle'
+		emulstr:='-m elf32lppc'
   else
-    targetstr:='-b elf32-powerpc -m elf32ppc';
+    targetstr:='-b elf32-powerpc';
+		emulstr:='-m elf32ppc';
 {$endif powerpc}
 {$ifdef powerpc64}
   if (target_info.abi=abi_powerpc_elfv2) and
      (target_info.endian=endian_little) then
-    targetstr:='-b elf64-powerpcle -m elf64lppc'
+    targetstr:='-b elf64-powerpcle';
+		emulstr:='-m elf64lppc'
   else
-    targetstr:='-b elf64-powerpc -m elf64ppc';
+    targetstr:='-b elf64-powerpc';
+		emulstr:='-m elf64ppc';
 {$endif powerpc64}
 
   if (cs_link_staticflag in current_settings.globalswitches) then

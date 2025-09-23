@@ -123,7 +123,7 @@ type sigset_t = array[0..3] of Longint;
        end;
 {$endif}
 
-{$if defined(CPUPOWERPC) or defined(CPUPOWERPC64)}
+{$ifdef CPUPOWERPC64}
     SigContextRec = record
        sc_mask      : sigset_t;          { signal mask to restore }
        sc_onstack   : clong;           { sigstack state to restore }

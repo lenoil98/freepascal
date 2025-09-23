@@ -192,8 +192,10 @@ unit i_bsd;
             system       : system_powerpc64_freebsd;
             name         : 'FreeBSD for PowerPC64';
             shortname    : 'FreeBSD';
-            flags        : [tf_needs_symbol_size,tf_needs_symbol_type,tf_files_case_sensitive,
-                            tf_requires_proper_alignment,tf_smartlink_sections,tf_has_winlike_resources];
+            flags        : [tf_needs_symbol_size,tf_needs_dwarf_cfi,tf_library_needs_pic,tf_needs_symbol_type,
+                            tf_files_case_sensitive,
+                            tf_dwarf_only_local_labels,
+                            {tf_pic_uses_got,}tf_smartlink_sections,tf_has_winlike_resources];
             cpu          : cpu_powerpc64;
             unit_env     : 'BSDUNITS';
             extradefines : 'UNIX;HASUNIX;BSD';
@@ -247,7 +249,7 @@ unit i_bsd;
             first_parm_offset : 8;
             stacksize    : 10*1024*1024;
             stackalign   : 16;
-            abi : abi_powerpc_sysv;
+            abi : abi_powerpc_elfv2;
             llvmdatalayout : 'E-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f128:64:64-v128:128:128-n32:64';
           );
 
@@ -1409,11 +1411,6 @@ initialization
   {$endif Darwin}
   {$ifdef FreeBSD}
     set_source_info(system_powerpc64_freebsd_info);
-    { on a little endian PPC64 platform -> source is elfv2 }
-    {$ifdef FPC_LITTLE_ENDIAN}
-    source_info.endian:=endian_little;
-    source_info.abi:=abi_powerpc_elfv2;
-    {$endif}
   {$endif FreeBSD}
 {$endif powerpc64}
 {$ifdef cpuarm}

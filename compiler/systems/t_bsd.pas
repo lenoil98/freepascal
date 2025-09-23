@@ -223,6 +223,14 @@ begin
       DynamicLinker:='/usr/libexec/ld.so'
      else if target_info.system in systems_netbsd then
       DynamicLinker:='/usr/libexec/ld.elf_so'
+     else if target_info.system in systems_freebsd then
+       begin
+	 if (target_info.system = system_i386_freebsd) and
+            FileExists('/usr/libexec/ld-elf32.so.1',true) then
+           DynamicLinker:='/usr/libexec/ld-elf32.so.1'
+         else
+           DynamicLinker:='/usr/libexec/ld-elf.so.1'
+       end
      else if target_info.system=system_x86_64_dragonfly then
       DynamicLinker:='/libexec/ld-elf.so.2'
      else
@@ -809,38 +817,6 @@ begin
       targetstr:='';
       emulstr:='';
     end;
-{$ifdef powerpc64}
-      if target_info.abi<>abi_powerpc_elfv2 then
-        LibrarySearchPath.AddLibraryPath(sysrootpath,'=/lib;=/usr/lib;=/usr/local/lib',true);
-{$else powerpc64}
-      LibrarySearchPath.AddLibraryPath(sysrootpath,'=/lib;=/usr/lib;=/usr/local/lib',true);
-{$endif powerpc64}
-{$ifdef powerpc}
-  if (target_info.abi=abi_powerpc_elfv2) and
-     (target_info.endian=endian_little) then
-		begin
-    		targetstr:='-b elf32-powerpcle';
-			emulstr:='-m elf32lppc';
-		end
-  else
-		begin
-    		targetstr:='-b elf32-powerpc';
-			emulstr:='-m elf32ppc';
-		end
-{$endif powerpc}
-{$ifdef powerpc64}
-  if (target_info.abi=abi_powerpc_elfv2) and
-     (target_info.endian=endian_little) then
-		begin
-    		targetstr:='-b elf64-powerpcle';
-			emulstr:='-m elf64lppc';
-		end
-  else
-		begin
-    		targetstr:='-b elf64-powerpc';
-			emulstr:='-m elf64ppc';
-		end
-{$endif powerpc64}
 
   if (cs_link_staticflag in current_settings.globalswitches) then
     begin
@@ -1010,17 +986,6 @@ begin
     begin
       targetstr:='-b elf32-i386-freebsd';
       emulstr:='-m elf_i386_fbsd';
-    end
-  else
-    begin
-      targetstr:='';
-      emulstr:='';
-    end;
-
-  if target_info.system=system_powerpc_freebsd then
-    begin
-      targetstr:='-b elf32powerpc_fbsd';
-      emulstr:='-m elf32ppc';
     end
   else
     begin
@@ -1202,12 +1167,12 @@ initialization
   RegisterExport(system_powerpc64_darwin,texportlibdarwin);
   RegisterTarget(system_powerpc64_darwin_info);
  {$ifdef freebsd}
- {$if defined(ppc64le) or (defined(cpupowerpc64) and defined(FPC_LITTLE_ENDIAN))}
+ {$ifdef powerpc64le}
    system_powerpc64_freebsd_info.endian:=endian_little;
    system_powerpc64_freebsd_info.abi:=abi_powerpc_elfv2;
  {$else freebsd}
    system_powerpc64_freebsd_info.endian:=endian_big;
-   system_powerpc64_freebsd_info.abi:=abi_powerpc_sysv;
+   system_powerpc64_freebsd_info.abi:=abi_powerpc_elfv2;
  {$endif freebsd}
  {$endif}
   RegisterImport(system_powerpc64_freebsd,timportlibbsd);

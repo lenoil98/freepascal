@@ -1,131 +1,93 @@
-        .section .note.tag,"a",@note
-        .align  2
-        .type    abitag,@object
-        .size    abitag,48
-abitag:
-        .long   8
-        .long   4
-        .long   1
-        .string "FreeBSD"
-        .long   1400097
-        .long   8
-        .long   4
-        .long   1
-        .string "FreeBSD"
-        .long   0
+/*
+ * FreeBSD PowerPC64 (ELFv2) startup code for Free Pascal
+ */
 
-        .section .rodata
-.LC0:
-        .string ""
+.macro LOAD_64BIT_VAL ra, value
+    lis       \ra,\value@highest
+    ori       \ra,\ra,\value@higher
+    sldi      \ra,\ra,32
+    oris      \ra,\ra,\value@h
+    ori       \ra,\ra,\value@l
+.endm
 
-        .data
-        .p2align 3
-        .globl  __progname
-        .type   __progname,@object
-        .size   __progname,8
-__progname:
-        .quad   .LC0
+.macro FUNCTION_PROLOG fn
+    .text
+    .align  2
+    .globl  \fn
+    .type   \fn,@function
+\fn:
+.endm
 
-        .bss
-        .globl  __stkptr
-        .type   __stkptr,@object
-        .size   __stkptr,8
+/* Entry point for dynamic executables */
+FUNCTION_PROLOG _dynamic_start
+    /* r3 = argc, r4 = argv, r5 = envp */
+
+    LOAD_64BIT_VAL 10, operatingsystem_parameter_argc
+    stw     3,0(10)
+
+    LOAD_64BIT_VAL 10, operatingsystem_parameter_argv
+    std     4,0(10)
+
+    LOAD_64BIT_VAL 10, operatingsystem_parameter_envp
+    std     5,0(10)
+
+    LOAD_64BIT_VAL 8,__stkptr
+    std     1,0(8)
+
+    bl      PASCALMAIN
+    nop
+
+    trap  /* should never return */
+
+/* Entry point for static executables */
+FUNCTION_PROLOG _start
+    /* FreeBSD ELFv2: r3=argc, r4=argv, r5=envp already valid */
+
+    LOAD_64BIT_VAL 10, operatingsystem_parameter_argc
+    stw     3,0(10)
+
+    LOAD_64BIT_VAL 10, operatingsystem_parameter_argv
+    std     4,0(10)
+
+    LOAD_64BIT_VAL 10, operatingsystem_parameter_envp
+    std     5,0(10)
+
+    LOAD_64BIT_VAL 8,__stkptr
+    std     1,0(8)
+
+    bl      PASCALMAIN
+    nop
+
+    trap
+
+FUNCTION_PROLOG _haltproc
+    /* just call FreeBSD exit() */
+    LOAD_64BIT_VAL 3, operatingsystem_result
+    lwz     3,0(3)    /* r3 = exit code */
+    li      0,1       /* syscall: exit */
+    sc
+    trap
+
+/* BSS globals */
+    .data
+    .globl __data_start
+__data_start:
+data_start:
+
+    .bss
+    .type __stkptr,@object
+    .size __stkptr,8
+    .globl __stkptr
 __stkptr:
-        .skip   8
+    .skip 8
 
-        .type   operatingsystem_parameters,@object
-        .size   operatingsystem_parameters,24
-        .globl  operatingsystem_parameters
+    .type operatingsystem_parameters,@object
+    .size operatingsystem_parameters,24
 operatingsystem_parameters:
-        .skip   24
-        .globl  operatingsystem_parameter_envp
-        .globl  operatingsystem_parameter_argc
-        .globl  operatingsystem_parameter_argv
-        .set    operatingsystem_parameter_envp,operatingsystem_parameters+0
-        .set    operatingsystem_parameter_argc,operatingsystem_parameters+8
-        .set    operatingsystem_parameter_argv,operatingsystem_parameters+16
-
-        .comm   environ,8,8
-        .weak   _DYNAMIC
-
-        .text
-        .p2align 2
-        .globl  _start
-        .type   _start,@function
-_start:
-        # --- ELFv2 prologue: create small frame & establish TOC in r2 ---
-        mflr    r0
-        std     r0,16(r1)
-        stdu    r1,-32(r1)
-
-        bl      1f                  # get PC into LR
-1:      mflr    r12                 # r12 = this function's address
-        addis   r2,r12,.TOC.-1b@ha  # r2 = TOC base (high)
-        addi    r2,r2,.TOC.-1b@l    # r2 = TOC base (low)
-        .localentry _start, .-_start
-
-        # Optionally record initial SP (to mirror your x86 global)
-        addis   r11,r2,__stkptr@toc@ha
-        addi    r11,r11,__stkptr@toc@l
-        std     r1,0(r11)
-
-        # --- Pull argc/argv/envp from initial stack layout ---
-        ld      r3,0(r1)            # r3 = argc
-        addi    r4,r1,8             # r4 = argv
-        sldi    r0,r3,3             # r0 = argc * 8
-        add     r5,r4,r0            # r5 = &argv[argc]
-        addi    r5,r5,8             # r5 = envp
-
-        # Store into your globals (TOC-relative)
-        addis   r11,r2,operatingsystem_parameter_argc@toc@ha
-        addi    r11,r11,operatingsystem_parameter_argc@toc@l
-        std     r3,0(r11)
-
-        addis   r11,r2,operatingsystem_parameter_argv@toc@ha
-        addi    r11,r11,operatingsystem_parameter_argv@toc@l
-        std     r4,0(r11)
-
-        addis   r11,r2,operatingsystem_parameter_envp@toc@ha
-        addi    r11,r11,operatingsystem_parameter_envp@toc@l
-        std     r5,0(r11)
-
-        # environ = envp
-        addis   r11,r2,environ@toc@ha
-        addi    r11,r11,environ@toc@l
-        std     r5,0(r11)
-
-        # __progname = argv[0] if argc>0 && argv[0]!=NULL
-        cmpdi   r3,0
-        ble     1f
-        ld      r9,0(r4)            # r9 = argv[0]
-        cmpdi   r9,0
-        beq     1f
-        addis   r11,r2,__progname@toc@ha
-        addi    r11,r11,__progname@toc@l
-        std     r9,0(r11)
-
-        # Walk argv[0] to find last '/' and set __progname to basename
-        mr      r10,r9
-0:
-        lbz     r6,0(r10)
-        cmpdi   r6,0
-        beq     1f
-        cmpdi   r6,47               # '/'
-        bne     2f
-        addi    r7,r10,1
-        addis   r11,r2,__progname@toc@ha
-        addi    r11,r11,__progname@toc@l
-        std     r7,0(r11)
-2:
-        addi    r10,r10,1
-        b       0b
-
-1:
-        # Call main(argc, argv, envp)   (r3,r4,r5 already set)
-        bl      main
-        # exit(main_ret)
-        mr      r3,r3
-        bl      exit
-        # no return
-
-        .size   _start,.-_start
+    .skip 3*8
+    .globl operatingsystem_parameter_argc
+    .globl operatingsystem_parameter_argv
+    .globl operatingsystem_parameter_envp
+    .set operatingsystem_parameter_argc,operatingsystem_parameters+0
+    .set operatingsystem_parameter_argv,operatingsystem_parameters+8
+    .set operatingsystem_parameter_envp,operatingsystem_parameters+16

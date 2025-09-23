@@ -1,17 +1,11 @@
 /*
- * This file is part of the Free Pascal run time library.
- * Copyright (c) 2005 by Thomas Schatzl,
- * member of the Free Pascal development team.
- *
- * Startup code for shared libraries, PowerPC64 version.
- *
- * See the file COPYING.FPC, included in this distribution,
- * for details about the copyright.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * Free Pascal RTL — Shared library startup (FreeBSD, PowerPC64 ELFv2)
  */
+
+        .machine        power8
+        .abiversion     2
+
+/* --- helpers ------------------------------------------------------------ */
 
 .macro LOAD_64BIT_VAL ra, value
     lis       \ra,\value@highest
@@ -21,125 +15,101 @@
     ori       \ra,\ra,\value@l
 .endm
 
-/* create function prolog for symbol "fn" */
+/* ELFv2: no function descriptors; establish TOC from r12 at entry */
 .macro FUNCTION_PROLOG fn
-    .section  ".text"
-    .align    2
+    .text
+    .align    4
     .globl    \fn
-    .section  ".opd", "aw"
-    .align    3
-\fn:
-    .quad     .\fn, .TOC.@tocbase, 0
-    .previous
-    .size     \fn, 24
     .type     \fn, @function
-    .globl    .\fn
-.\fn:
+\fn:
+    addis     2,12,.TOC.-\fn@ha
+    addi      2,2,.TOC.-\fn@l
+    .localentry \fn, .-\fn
 .endm
 
-/*
- * "ptrgl" glue code for calls via pointer. This function
- * sequence loads the data from the function descriptor
- * referenced by R11 into the CTR register (function address),
- * R2 (GOT/TOC pointer), and R11 (the outer frame pointer).
- *
- * On entry, R11 must be set to point to the function descriptor.
- *
- * See also the 64-bit PowerPC ABI specification for more
- * information, chapter 3.5.11 (in v1.7).
- */
-.section ".text"
-.align 3
-.globl .ptrgl
-.ptrgl:
-    ld	    0, 0(11)
-    std     2, 40(1)
-    mtctr   0
-    ld      2, 8(11)
-    ld      11, 16(11)
-    bctr
-.long 0
-.byte 0, 12, 128, 0, 0, 0, 0, 0
-.type .ptrgl, @function
-.size .ptrgl, . - .ptrgl
+/* --- code --------------------------------------------------------------- */
+
+        .section ".text"
 
 /*
- * Main program entry point label (function), called by the loader
- *
- * The document "64-bit PowerPC ELF Application Binary Interface Supplement 1.9"
- * pg. 24f specifies the register contents.
+ * Entry called by the loader for the shared object.
+ * ELFv2 process/linker conventions: r3=argc, r4=argv, r5=envp.
  */
 FUNCTION_PROLOG FPC_SHARED_LIB_START
+    /* standard small frame */
     mflr    0
-    std     0, 16(1)        /* save LR */
-    stdu    1, -144(1)      /* save back chain, make frame */
+    stdu    1,-144(1)
+    std     0,16(1)
 
-    /* store argument count (in r3)*/
-    LOAD_64BIT_VAL 10, operatingsystem_parameter_argc
-    stw     3, 0(10)
-    /* store argument vector (in r4) */
-    LOAD_64BIT_VAL 10, operatingsystem_parameter_argv
-    std     4, 0(10)
-    /* store environment pointer (in r5) */
-    LOAD_64BIT_VAL 10, operatingsystem_parameter_envp
-    std     5, 0(10)
+    /* store argc/argv/envp to RTL slots */
+    addis   10,2,operatingsystem_parameter_argc@toc@ha
+    addi    10,10,operatingsystem_parameter_argc@toc@l
+    stw     3,0(10)
 
-    LOAD_64BIT_VAL 8, __stkptr
+    addis   10,2,operatingsystem_parameter_argv@toc@ha
+    addi    10,10,operatingsystem_parameter_argv@toc@l
+    std     4,0(10)
+
+    addis   10,2,operatingsystem_parameter_envp@toc@ha
+    addi    10,10,operatingsystem_parameter_envp@toc@l
+    std     5,0(10)
+
+    /* stash initial SP */
+    addis   8,2,__stkptr@toc@ha
+    addi    8,8,__stkptr@toc@l
     std     1,0(8)
 
     /* call library initialization */
     bl      PASCALMAIN
     nop
 
-    /* return to the caller */
-    addi    1,1,144   /* restore stack */
-    ld      0,16(1)   /* prepare for method return */
+    /* epilogue / return to caller */
+    ld      0,16(1)
+    addi    1,1,144
     mtlr    0
     blr
-.long 0
-.byte 0, 12, 64, 0, 0, 0, 0, 0
+.size FPC_SHARED_LIB_START, .-FPC_SHARED_LIB_START
 
-/* this routine is only called when the halt() routine of the RTL embedded in
-   the shared library is called */
+/*
+ * Called when the RTL in the shared library performs halt().
+ * FreeBSD: no exit_group; just exit(status).
+ */
 FUNCTION_PROLOG _haltproc
-    /* exit_group call */
-    LOAD_64BIT_VAL 3, operatingsystem_result
-    lwz     3, 0(3)
-    li      0, 234
-    sc
-    /* exit call */
-    LOAD_64BIT_VAL 3, operatingsystem_result
-    lwz     3, 0(3)
-    li      0, 1
-    sc
-    /* we should not reach here. Crash horribly */
+    /* r3 = operatingsystem_result */
+    addis   3,2,operatingsystem_result@toc@ha
+    addi    3,3,operatingsystem_result@toc@l
+    lwz     3,0(3)
+    bl      exit
+    nop
+    /* should not return */
     trap
-.long 0
-.byte 0, 12, 64, 0, 0, 0, 0, 0
+.size _haltproc, .-_haltproc
 
-    /* Define a symbol for the first piece of initialized data.  */
-    .section ".data"
-    .globl  __data_start
+/* --- data/bss ----------------------------------------------------------- */
+
+        /* first piece of initialized data (optional marker) */
+        .section ".data"
+        .globl  __data_start
 __data_start:
 data_start:
 
-    .section ".bss"
+        .section ".bss"
 
-    .type __stkptr, @object
-    .size __stkptr, 8
-    .global __stkptr
+        .type   __stkptr, @object
+        .size   __stkptr, 8
+        .globl  __stkptr
 __stkptr:
-    .skip 8
+        .skip   8
 
-    .type operatingsystem_parameters, @object
-    .size operatingsystem_parameters, 24
+        .type   operatingsystem_parameters, @object
+        .size   operatingsystem_parameters, 24
 operatingsystem_parameters:
-    .skip 3 * 8
-    .global operatingsystem_parameter_argc
-    .global operatingsystem_parameter_argv
-    .global operatingsystem_parameter_envp
-    .set operatingsystem_parameter_argc, operatingsystem_parameters+0
-    .set operatingsystem_parameter_argv, operatingsystem_parameters+8
-    .set operatingsystem_parameter_envp, operatingsystem_parameters+16
+        .skip   3*8
 
-.section .note.GNU-stack,"",%progbits
+        .globl  operatingsystem_parameter_argc
+        .globl  operatingsystem_parameter_argv
+        .globl  operatingsystem_parameter_envp
+        .set    operatingsystem_parameter_argc, operatingsystem_parameters+0
+        .set    operatingsystem_parameter_argv, operatingsystem_parameters+8
+        .set    operatingsystem_parameter_envp, operatingsystem_parameters+16
+

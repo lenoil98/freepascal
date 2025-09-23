@@ -35,7 +35,9 @@ operatingsystem_parameters:
         .set    operatingsystem_parameter_argc, operatingsystem_parameters+8
         .set    operatingsystem_parameter_argv, operatingsystem_parameters+16
 
-        .comm   environ,8,8
+        .globl  environ              # provided by libc
+        .type   environ,@object
+
         .weak   _DYNAMIC
 
         .section .text
@@ -48,12 +50,12 @@ _start:
         addi    2,2,.TOC.-_start@l
         .localentry _start, .-_start
 
-        # Standard PPC64 prologue (small frame; we don’t need much)
+        # Standard PPC64 prologue (small frame)
         stdu    1,-128(1)              # create frame, save back chain
         std     31,120(1)              # callee-saved as scratch
         mr      31,1
 
-        # Save initial SP as __stkptr (optional, mirroring original file)
+        # Save initial SP as __stkptr
         addis   3,2,__stkptr@toc@ha
         addi    3,3,__stkptr@toc@l
         std     1,0(3)
@@ -72,12 +74,9 @@ _start:
         # Store into operatingsystem_parameters.{envp,argc,argv}
         addis   3,2,operatingsystem_parameters@toc@ha
         addi    3,3,operatingsystem_parameters@toc@l
-        # envp at +0
-        std     8,0(3)
-        # argc (store 32-bit into 8-byte slot, like original x86_64 code did)
-        stw     9,8(3)
-        # argv at +16
-        std     10,16(3)
+        std     8,0(3)                 # envp
+        stw     9,8(3)                 # argc (32-bit store)
+        std     10,16(3)               # argv
 
         # environ = envp
         addis   4,2,environ@toc@ha
@@ -108,22 +107,15 @@ _start:
 2:      addi    7,7,1
         b       0b
 1:
-        # if (_DYNAMIC) atexit(/*no loader cleanup available here*/)
-        # We keep the check (harmless) and simply proceed to TLS/init/atexit.
+        # Check if dynamically linked (_DYNAMIC != 0)
         addis   3,2,_DYNAMIC@toc@ha
         addi    3,3,_DYNAMIC@toc@l
-        ld      3,0(3)                  # r3 = &_DYNAMIC or 0
         cmpdi   3,0
         beq     3f
 
-        # Dynamically linked: no loader-provided cleanup in this ABI path.
-        # Fall through to registering _fini and doing _init like the static path.
-
-3:
-        # Register _fini with atexit
+3:      # Register _fini with atexit (ELFv2: pass code address directly)
         addis   3,2,_fini@toc@ha
-        addi    3,3,_fini@toc@l         # r3 = &_fini
-        ld      3,0(3)
+        addi    3,3,_fini@toc@l
         bl      atexit
         nop
 
@@ -144,7 +136,7 @@ _start:
         nop
 
         # Should not return; just in case, trap.
-        tw      31,0,0
+        trap
 
         # Epilogue (not reached)
         ld      31,120(1)
@@ -153,6 +145,6 @@ _start:
 
         .size   _start,.-_start
 
-        # Optional identity string (mirroring original style)
         .section .comment
-        .ascii  "FreePascal PPC64 ELFv2 crt1 (binutils)\0"
+        .ascii  "FreeBSD PowerPC64 ELFv2 crt1 (binutils)\0"
+

@@ -1,54 +1,56 @@
 {
    This file is part of the Free Pascal run time library.
    (c) 2000-2003 by Marco van de Voort
-   member of the Free Pascal development team.
+   (c) 2025 adapted for FreeBSD/PowerPC64 ELFv2
 
    See the file COPYING.FPC, included in this distribution,
    for details about the copyright.
 
-   Signalhandler for FreeBSD/i386
+   Signalhandler for FreeBSD/PowerPC64
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY;without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 }
 
-procedure SignalToRunerror(Sig: cint; info : psiginfo;  SigContext:PSigContextRec); public name '_FPC_DEFAULTSIGHANDLER'; cdecl;
+procedure SignalToRunerror(sig: cint; info: psiginfo; sigcontext: PSigContext);
+  public name '_FPC_DEFAULTSIGHANDLER'; cdecl;
 
 var
-  res : word;
+  res: word;
 
 begin
-  res:=0;
+  res := 0;
   case sig of
-    SIGFPE :
-          begin
-            Case Info^.si_code Of
-                FPE_INTDIV : Res:=200;  {integer divide fault. Div0?}
-                FPE_FLTOVF : Res:=205;  {Overflow trap}
-                FPE_FLTUND : Res:=206;  {Stack over/underflow}
-                FPE_FLTRES : Res:=216;  {Device not available}
-                FPE_FLTINV : Res:=216;  {Invalid floating point operation}
-               Else
-                Res:=208; {coprocessor error}
-                End;
-             sysResetFPU;
-          End;
+    SIGFPE:
+      begin
+        case info^.si_code of
+          FPE_INTDIV: res := 200;  { integer divide fault }
+          FPE_FLTOVF: res := 205;  { overflow trap }
+          FPE_FLTUND: res := 206;  { underflow }
+          FPE_FLTRES: res := 216;  { inexact result / device not available }
+          FPE_FLTINV: res := 216;  { invalid floating point op }
+        else
+          res := 208;              { generic coprocessor error }
+        end;
+        sysResetFPU;               { reset FPSCR on PowerPC64 }
+      end;
     SIGILL,
     SIGBUS,
-    SIGSEGV :
-        res:=216;
+    SIGSEGV:
+      res := 216;
     SIGINT:
-        res:=217;
+      res := 217;
     SIGQUIT:
-        res:=233;
+      res := 233;
   end;
+
   {$ifdef FPC_USE_SIGPROCMASK}
-   reenable_signal(sig);
-  {$endif }
-{ give runtime error at the position where the signal was raised }
-  if res<>0 then
-   begin
-     HandleError(res);
-   end;
+  reenable_signal(sig);
+  {$endif}
+
+  { give runtime error at the position where the signal was raised }
+  if res <> 0 then
+    HandleError(res);
 end;
+

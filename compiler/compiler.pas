@@ -81,9 +81,9 @@ uses
 {$ifdef beos}
   ,i_beos
 {$endif beos}
-{$ifdef fbsd}
-  ,i_fbsd
-{$endif fbsd}
+{$ifdef bsd}
+  ,i_bsd
+{$endif bsd}
 {$ifdef gba}
   ,i_gba
 {$endif gba}

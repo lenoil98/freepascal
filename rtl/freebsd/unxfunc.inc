@@ -51,7 +51,7 @@ var
   pip  : tfildes;
   flags : cint;
 begin
-  assignPipe:=fppipe(pip, flags);
+  assignPipe:=fppipe(pip, 0);
   pipe_in:=pip[0];
   pipe_out:=pip[1];
 end;

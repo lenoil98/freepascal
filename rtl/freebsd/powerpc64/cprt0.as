@@ -147,4 +147,3 @@ _start:
 
         .section .comment
         .ascii  "FreeBSD PowerPC64 ELFv2 crt1 (binutils)\0"
-

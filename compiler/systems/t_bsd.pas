@@ -1166,15 +1166,6 @@ initialization
   RegisterImport(system_powerpc64_darwin,timportlibdarwin);
   RegisterExport(system_powerpc64_darwin,texportlibdarwin);
   RegisterTarget(system_powerpc64_darwin_info);
- {$ifdef freebsd}
- {$ifdef powerpc64le}
-   system_powerpc64_freebsd_info.endian:=endian_little;
-   system_powerpc64_freebsd_info.abi:=abi_powerpc_elfv2;
- {$else freebsd}
-   system_powerpc64_freebsd_info.endian:=endian_big;
-   system_powerpc64_freebsd_info.abi:=abi_powerpc_elfv2;
- {$endif freebsd}
- {$endif}
   RegisterImport(system_powerpc64_freebsd,timportlibbsd);
   RegisterExport(system_powerpc64_freebsd,texportlibbsd);
   RegisterTarget(system_powerpc64_freebsd_info);

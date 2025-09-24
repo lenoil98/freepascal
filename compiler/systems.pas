@@ -235,7 +235,6 @@ interface
                        system_x86_6432_linux,system_mipseb_linux,system_mipsel_linux,system_aarch64_linux];
        systems_dragonfly = [system_x86_64_dragonfly];
        systems_freebsd = [system_i386_freebsd,
-                          system_powerpc_freebsd,
                           system_powerpc64_freebsd,
                           system_x86_64_freebsd];
        systems_netbsd  = [system_i386_netbsd,
@@ -900,10 +899,6 @@ begin
   {$else cpupowerpc}
    {$ifdef linux}
     default_target(system_powerpc_linux);
-    {$define default_target_set}
-   {$endif}
-   {$ifdef freebsd}
-    default_target(system_powerpc_freebsd);
     {$define default_target_set}
    {$endif}
    {$ifdef darwin}

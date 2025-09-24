@@ -25,10 +25,7 @@
 {$ENDIF}
 
 {$ifdef cpupowerpc}
-  {$ifdef freebsd}
-    {$define freebsdpowerpc}
-  {$endif}
-  {$ifdef netbsd}
+ {$ifdef netbsd}
     {$define netbsdpowerpc}
   {$endif}
 {$endif}

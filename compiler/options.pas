@@ -4305,7 +4305,7 @@ begin
       else
         if (target_info.abi=abi_powerpc_elfv2) and
          (target_info.endian=endian_big) then
-        target_info.abi:=abi_powerpc_sysv
+        target_info.abi:=abi_powerpc_elfv2
     end;
 {$endif}
 

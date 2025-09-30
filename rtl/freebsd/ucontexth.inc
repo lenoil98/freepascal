@@ -20,7 +20,7 @@ type
   end;
   {$packrecords C}
 
-{$ifdef cpux86_64}
+{$ifdef x86_64}
   mcontext_t = record
     {*
      * The first 20 fields must match the definition of
@@ -56,7 +56,7 @@ type
   end;
 {$endif}
 
-{$ifdef cpupowerpc64}
+{$ifdef powerpc64}
   gpregs = record
     { General-purpose registers r0..r31 }
     gp_r: array[0..31] of NativeUInt;  { 64-bit each }

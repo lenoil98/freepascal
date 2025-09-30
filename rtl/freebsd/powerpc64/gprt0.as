@@ -1,114 +1,106 @@
-        .file   "crt1_ppc64_elfv2.S"
+/* FreeBSD/FPC startup for PowerPC64 ELFv2
+ * Derived from glibc crt0 but stripped of ELFv1 .opd/ptrgl.
+ */
 
-        .machine        power8
-        .abiversion     2
-
-        .section .rodata
-.LC0:
-        .asciz  ""
-
-        .globl  __progname
-        .section .data
-        .p2align 3
-        .type   __progname, @object
-        .size   __progname, 8
-__progname:
-        .quad   .LC0
-
-        # libc provides 'environ'
-        .globl  environ
-        .type   environ, @object
-
-        # Optional weak reference: nonzero if dynamically linked, 0 for static
-        .weak   _DYNAMIC
-
-        # Expose OS parameter slots (matching your layout)
-        .globl  operatingsystem_parameter_argc
-        .globl  operatingsystem_parameter_argv
-        .globl  operatingsystem_parameter_envp
-        .p2align 3
-operatingsystem_parameter_argc:
-        .quad   0
-operatingsystem_parameter_argv:
-        .quad   0
-operatingsystem_parameter_envp:
-        .quad   0
-
-        .text
-        .p2align 2
-        .globl  _start
-        .type   _start, @function
+        .section .text
+        .align 2
+        .globl _start
+        .type  _start,@function
 _start:
-        # ELFv2 process entry: r12 holds entry address; set up TOC in r2
-        addis   2,12,.TOC.-_start@ha
-        addi    2,2,.TOC.-_start@l
-        .localentry _start, .-_start
+        # r3=argc, r4=argv, r5=envp (ELFv2)
+        mr      9,1                  # save SP
 
-        # Minimal frame (not strictly needed, but harmless)
-        stdu    1,-32(1)
+        clrrdi  1,1,4                # align SP
+        li      0,0
+        stdu    1,-128(1)
+        mtlr    0
         std     0,16(1)
 
-        # r3=argc, r4=argv, r5=envp (ELFv2 entry convention)
+        # Save argc/argv/envp for Pascal RTL
+        lis     8, operatingsystem_parameter_argc@highest
+        ori     8,8,operatingsystem_parameter_argc@higher
+        sldi    8,8,32
+        oris    8,8,operatingsystem_parameter_argc@h
+        ori     8,8,operatingsystem_parameter_argc@l
+        stw     3,0(8)
 
-        # Store argc (32-bit) / argv / envp into your globals (TOC-relative)
-        addis   9,2,operatingsystem_parameter_argc@toc@ha
-        addi    9,9,operatingsystem_parameter_argc@toc@l
-        stw     3,0(9)
+        lis     8, operatingsystem_parameter_argv@highest
+        ori     8,8,operatingsystem_parameter_argv@higher
+        sldi    8,8,32
+        oris    8,8,operatingsystem_parameter_argv@h
+        ori     8,8,operatingsystem_parameter_argv@l
+        std     4,0(8)
 
-        addis   10,2,operatingsystem_parameter_argv@toc@ha
-        addi    10,10,operatingsystem_parameter_argv@toc@l
-        std     4,0(10)
+        lis     8, operatingsystem_parameter_envp@highest
+        ori     8,8,operatingsystem_parameter_envp@higher
+        sldi    8,8,32
+        oris    8,8,operatingsystem_parameter_envp@h
+        ori     8,8,operatingsystem_parameter_envp@l
+        std     5,0(8)
 
-        addis   11,2,operatingsystem_parameter_envp@toc@ha
-        addi    11,11,operatingsystem_parameter_envp@toc@l
-        std     5,0(11)
+        lis     8, __stkptr@highest
+        ori     8,8,__stkptr@higher
+        sldi    8,8,32
+        oris    8,8,__stkptr@h
+        ori     8,8,__stkptr@l
+        std     1,0(8)
 
-        # environ = envp
-        addis   12,2,environ@toc@ha
-        addi    12,12,environ@toc@l
-        std     5,0(12)
-
-        # if (argc > 0 && argv[0] != NULL) { __progname = argv[0]; scan for last '/' }
-        cmpdi   3,0
-        ble     1f
-
-        ld      6,0(4)                  # r6 = argv[0]
-        cmpdi   6,0
-        beq     1f
-
-        # __progname = argv[0]
-        addis   7,2,__progname@toc@ha
-        addi    7,7,__progname@toc@l
-        std     6,0(7)
-
-        # Scan for last '/' to set __progname past it
-        mr      8,6
-0:      lbz     9,0(8)
-        cmpdi   9,0
-        beq     1f
-        cmpdi   9,47                    # '/'
-        bne     2f
-        addi    10,8,1
-        std     10,0(7)
-2:      addi    8,8,1
-        b       0b
-
-1:
-        # Call main(argc, argv, envp)
-        # r3,r4,r5 already set appropriately
-        bl      main
+        # Call Pascal entry
+        bl      PASCALMAIN
         nop
 
-        # exit(main_ret)
-        mr      3,3
-        bl      exit
-        nop
+        b       _haltproc
 
-        # Should not return; just in case, trap.
-        trap
+        .size _start, .-_start
 
-        .size   _start, .-_start
+        .globl _haltproc
+        .type  _haltproc,@function
+_haltproc:
+        lis     8, ___fpc_ret@highest
+        ori     8,8,___fpc_ret@higher
+        sldi    8,8,32
+        oris    8,8,___fpc_ret@h
+        ori     8,8,___fpc_ret@l
+        ld      1,0(8)
+        addi    1,1,128
+        ld      0,16(1)
+        mtlr    0
+        blr
+		nop
+        .size _haltproc, .-_haltproc
 
-        .section .comment
-        .ascii  "FreeBSD PowerPC64 ELFv2 crt1 (minimal)\0"
+        .section .data
+        .globl __data_start
+__data_start:
+data_start:
 
+___fpc_ret:
+        .quad 0
+
+        .section .bss
+        .type __stkptr,@object
+        .size __stkptr,8
+        .globl __stkptr
+__stkptr:
+        .skip 8
+
+        .type operatingsystem_parameters,@object
+        .size operatingsystem_parameters,24
+        .globl operatingsystem_parameters
+operatingsystem_parameters:
+        .skip 24
+        .globl operatingsystem_parameter_argc
+        .globl operatingsystem_parameter_argv
+        .globl operatingsystem_parameter_envp
+        .set operatingsystem_parameter_argc,operatingsystem_parameters+0
+        .set operatingsystem_parameter_argv,operatingsystem_parameters+8
+        .set operatingsystem_parameter_envp,operatingsystem_parameters+16
+
+        .section .note.ABI-tag,"a",@progbits
+        .p2align 2
+        .long 8,4,1              # name size, desc size, tag
+        .string "FreeBSD"        # ABI name
+        .p2align 2
+        .long 0,0,0              # version fields
+
+        .section .note.GNU-stack,"",%progbits

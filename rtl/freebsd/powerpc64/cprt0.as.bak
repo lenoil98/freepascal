@@ -1,0 +1,95 @@
+        .file   "cprt0.as"
+        .abiversion 2
+        .machine power8
+
+        .section .note.ABI-tag,"a",@progbits
+        .p2align 2
+        .type   abitag, @object
+        .size   abitag, 24
+abitag:
+        .long   8              # name size
+        .long   4              # desc size
+        .long   1              # ABI tag
+        .string "FreeBSD"
+        .long   1400000        # FreeBSD version (14.0.0)
+
+        .section .rodata
+.LC0:
+        .string ""
+
+        .data
+        .p2align 3
+        .globl  __progname
+        .type   __progname,@object
+        .size   __progname,8
+__progname:
+        .quad   .LC0
+
+        .comm   environ,8,8
+        .weak   _DYNAMIC
+
+        .text
+        .p2align 2
+        .globl  _start
+        .type   _start,@function
+
+# Entry point (ELFv2 ABI):
+#   r3 = argc
+#   r4 = argv
+#   r5 = envp
+_start:
+        mflr    0
+        std     0,16(1)          # save LR
+        stdu    1,-32(1)         # new stack frame
+
+        # Save argc/argv/envp into FPC RTL variables
+        std     3, operatingsystem_parameter_argc@got(2)
+        std     4, operatingsystem_parameter_argv@got(2)
+        std     5, operatingsystem_parameter_envp@got(2)
+
+        # environ := envp
+        std     5, environ@got(2)
+
+        # __progname := argv[0]
+        ld      6,0(4)
+        std     6, __progname@got(2)
+
+        # Strip path from argv[0]
+1:      lbz     7,0(6)
+        cmpwi   7,0
+        beq     2f
+        cmpwi   7,'/'
+        bne     3f
+        addi    6,6,1
+        std     6,__progname@got(2)
+3:      addi    6,6,1
+        b       1b
+2:
+
+        # Call main(argc, argv, envp)
+        mr      3,3    # argc
+        mr      4,4    # argv
+        mr      5,5    # envp
+        bl      main
+
+        # Exit(return value)
+        mr      3,3
+        bl      exit
+	nop
+
+        # not reached
+        trap
+
+        .size   _start,.-_start
+
+    	.type operatingsystem_parameters,@object
+    	.size operatingsystem_parameters,24
+operatingsystem_parameters:
+    	.skip 3*8
+    	.globl operatingsystem_parameter_argc
+    	.globl operatingsystem_parameter_argv
+   	 .globl operatingsystem_parameter_envp
+    	.set operatingsystem_parameter_argc,operatingsystem_parameters+0
+    	.set operatingsystem_parameter_argv,operatingsystem_parameters+8
+    	.set operatingsystem_parameter_envp,operatingsystem_parameters+16
+

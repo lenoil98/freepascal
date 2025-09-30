@@ -1,154 +1,115 @@
+        .file   "cprt0.as"
+
         .machine        power8
         .abiversion     2
 
         .section .rodata
-.LC_progname_empty:
-        .string ""
+.LC0:
+        .asciz  ""
 
-        .section .data
-        .align  3
         .globl  __progname
-        .type   __progname,@object
-        .size   __progname,8
+        .section .data
+        .p2align 3
+        .type   __progname, @object
+        .size   __progname, 8
 __progname:
-        .quad   .LC_progname_empty
+        .quad   .LC0
 
-        .section .bss
-        .align  3
-        .type   __stkptr,@object
-        .size   __stkptr,8
-        .globl  __stkptr
-__stkptr:
-        .skip   8
+		.comm	environ,8,8
+        # libc provides 'environ'
+        .globl  environ
+        .type   environ, @object
 
-        .align  3
-        .type   operatingsystem_parameters,@object
-        .size   operatingsystem_parameters,24
-        .globl  operatingsystem_parameters
-operatingsystem_parameters:
-        .skip   24
-
-        .globl  operatingsystem_parameter_envp
-        .globl  operatingsystem_parameter_argc
-        .globl  operatingsystem_parameter_argv
-        .set    operatingsystem_parameter_envp, operatingsystem_parameters+0
-        .set    operatingsystem_parameter_argc, operatingsystem_parameters+8
-        .set    operatingsystem_parameter_argv, operatingsystem_parameters+16
-
-        .comm   environ,8,8
+        # Optional weak reference: nonzero if dynamically linked, 0 for static
         .weak   _DYNAMIC
 
-        .section .text
-        .align  4
-        .globl  start
-        .type   start,@function
-start:
-        # Setup TOC pointer using r2 (TOC in ELFv2). r12 is entry address on some toolchains,
-        # but we use @toc relocations via addis/addi to set r2 as TOC pointer.
-        addis   2,12,.TOC.-start@ha
-        addi    2,2,.TOC.-start@l
-        .localentry start, .-start
+        # Expose OS parameter slots (matching your layout)
+        .globl  operatingsystem_parameter_argc
+        .globl  operatingsystem_parameter_argv
+        .globl  operatingsystem_parameter_envp
+        .p2align 3
+operatingsystem_parameter_argc:
+        .quad   0
+operatingsystem_parameter_argv:
+        .quad   0
+operatingsystem_parameter_envp:
+        .quad   0
 
-        # Create a small stack frame
-        stdu    1,-128(1)
-        std     31,120(1)
-        mr      31,1
+        .text
+        .p2align 2
+        .globl  _start
+        .type   _start, @function
+_start:
+        # ELFv2 process entry: r12 holds entry address; set up TOC in r2
+        addis   2,12,.TOC.-_start@ha
+        addi    2,2,.TOC.-_start@l
+        .localentry _start, .-_start
 
-        # Save initial sp into __stkptr
-        addis   3,2,__stkptr@toc@ha
-        addi    3,3,__stkptr@toc@l
-        std     1,0(3)
+        # Minimal frame (not strictly needed, but harmless)
+        stdu    1,-32(1)
+        std     0,16(1)
 
-        # Load argc from stack (at r1)
-        ld      9,0(1)                 # r9 = argc
+        # r3=argc, r4=argv, r5=envp (ELFv2 entry convention)
 
-        # argv = r1 + 8
-        addi    10,1,8                 # r10 = &argv[0]
+        # Store argc (32-bit) / argv / envp into your globals (TOC-relative)
+        addis   9,2,operatingsystem_parameter_argc@toc@ha
+        addi    9,9,operatingsystem_parameter_argc@toc@l
+        stw     3,0(9)
 
-        # envp = r1 + 16 + 8*argc
-        sldi    11,9,3                 # r11 = argc * 8
-        addi    12,1,16
-        add     8,12,11                # r8 = envp
+        addis   10,2,operatingsystem_parameter_argv@toc@ha
+        addi    10,10,operatingsystem_parameter_argv@toc@l
+        std     4,0(10)
 
-        # Store envp/argc/argv into operatingsystem_parameters
-        addis   3,2,operatingsystem_parameters@toc@ha
-        addi    3,3,operatingsystem_parameters@toc@l
-        std     8,0(3)                 # envp -> +0
-        stw     9,8(3)                 # argc -> +8 (lower 32 bits; same as original)
-        std     10,16(3)               # argv -> +16
+        addis   11,2,operatingsystem_parameter_envp@toc@ha
+        addi    11,11,operatingsystem_parameter_envp@toc@l
+        std     5,0(11)
 
         # environ = envp
-        addis   4,2,environ@toc@ha
-        addi    4,4,environ@toc@l
-        std     8,0(4)
+        addis   12,2,environ@toc@ha
+        addi    12,12,environ@toc@l
+        std     5,0(12)
 
-        # If argc > 0 and argv[0] != 0, set __progname to argv[0] and
-        # then set __progname to the final component (after last '/')
-        cmpdi   9,0
-        ble     set_dynamic_check
-        ld      5,0(10)                # r5 = argv[0]
-        cmpdi   5,0
-        beq     set_dynamic_check
-
-        addis   6,2,__progname@toc@ha
-        addi    6,6,__progname@toc@l
-        std     5,0(6)                 # store pointer
-
-        mr      7,5                     # r7 = pointer to scan
-scan_loop:
-        lbz     12,0(7)
-        cmpdi   12,0
-        beq     set_dynamic_check
-        cmpdi   12,47                  # '/'
-        bne     scan_next
-        addi    13,7,1
-        std     13,0(6)                # __progname = r7+1
-scan_next:
-        addi    7,7,1
-        b       scan_loop
-
-set_dynamic_check:
-        # Check _DYNAMIC (weak); if set, we could register loader-cleanup; omitted for portability.
-        addis   3,2,_DYNAMIC@toc@ha
-        addi    3,3,_DYNAMIC@toc@l
-        ld      3,0(3)
+        # if (argc > 0 && argv[0] != NULL) { __progname = argv[0]; scan for last '/' }
         cmpdi   3,0
-        beq     register_fini
+        ble     1f
 
-        # If desired, a loader cleanup hook would be invoked here (platform dependent)
-register_fini:
-        # Register _fini with atexit (if present) and call _init
-        # Load address of _fini then call atexit
-        addis   3,2,_fini@toc@ha
-        addi    3,3,_fini@toc@l
-        ld      3,0(3)
-        bl      atexit
-        nop
+        ld      6,0(4)                  # r6 = argv[0]
+        cmpdi   6,0
+        beq     1f
 
-        bl      _init
-        nop
+        # __progname = argv[0]
+        addis   7,2,__progname@toc@ha
+        addi    7,7,__progname@toc@l
+        std     6,0(7)
 
+        # Scan for last '/' to set __progname past it
+        mr      8,6
+0:      lbz     9,0(8)
+        cmpdi   9,0
+        beq     1f
+        cmpdi   9,47                    # '/'
+        bne     2f
+        addi    10,8,1
+        std     10,0(7)
+2:      addi    8,8,1
+        b       0b
+
+1:
         # Call main(argc, argv, envp)
-        mr      3,9
-        mr      4,10
-        mr      5,8
+        # r3,r4,r5 already set appropriately
         bl      main
         nop
 
-        # exit(main_retval)
+        # exit(main_ret)
         mr      3,3
         bl      exit
         nop
 
-        # In case exit returns, just trap
-        tw      31,0,0
+        # Should not return; just in case, trap.
+        trap
 
-        # Epilogue (not expected to run)
-        ld      31,120(1)
-        addi    1,1,128
-        blr
-
-        .size   start,.-start
+        .size   _start, .-_start
 
         .section .comment
-        .ascii  "FreePascal PPC64 ELFv2 crt1 (binutils)\0"
+        .ascii  "FreeBSD PowerPC64 ELFv2 crt1 (minimal)\0"
+

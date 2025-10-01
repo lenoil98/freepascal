@@ -3,10 +3,8 @@ This is a work-in-progress (WIP).  The code currently supports creation of cross
 
 TODO:
 
-  - Startup code must be adapted. 
-    - linking without libc (rtl/freebsd/powerpc64/prt0.as)
-    - linking with libc (rtl/freebsd/powerpc64/cprt0.as)
-  - Validate signals (rtl/freebsd/signal.inc)
+  - Startup code must be adapted. (Done)
+  - Validate signals (rtl/freebsd/signal.inc) (Done)
   - Automatic ABI detection.
   
 Instructions for building cross-compiler and compiler:
